@@ -1,0 +1,110 @@
+#!/usr/bin/python
+
+import fileinput
+import subprocess
+import tempfile
+import re
+from email.parser import HeaderParser
+import email
+import base64
+import os
+
+
+mail_flag = "fax@domain.com"
+
+
+# Write a temp file contain "string"
+def writeTempFile(string):
+    f = tempfile.NamedTemporaryFile(delete=False)
+    f.write(string)
+    f.close()
+    return f.name
+
+
+# Convert to pdf
+# Unoconv create a a pdf file with same name and pdf extension
+def convertToPDF(filepath):
+    args = ["/usr/bin/unoconv", "-f", "pdf", filepath]
+    subprocess.call(args)
+    return filepath+".pdf"
+
+
+def send_fax(fileString):
+    number = get_number(fileString)
+    out_filelist = []
+    em = email.message_from_string(fileString)
+    if em.is_multipart():
+        for pl in em.get_payload():
+            if "application/pdf" in pl['Content-Type']:
+                b64string = pl.get_payload()
+                decodedPDF = base64.b64decode(b64string)
+                out_filelist.append(writeTempFile(decodedPDF))
+            elif "text/plain" in pl['Content-Type']:
+                if "base64" in pl['Content-Transfer-Encoding']:
+                    b64string = pl.get_payload()
+                    decodedTXT = base64.b64decode(b64string)
+                    out_filelist.append(writeTempFile(decodedTXT))
+                else:
+                    txtstring = pl.get_payload()
+                    out_filelist.append(writeTempFile(txtstring))
+            elif "application/rtf" in pl['Content-Type']:
+                b64string = pl.get_payload()
+                decodedRTF = base64.b64decode(b64string)
+                tempFile = writeTempFile(decodedRTF)
+                out_filelist.append(convertToPDF(tempFile))
+            elif "image/tiff" in pl['Content-Type']:
+                b64string = pl.get_payload()
+                decodedTIFF = base64.b64decode(b64string)
+                out_filelist.append(writeTempFile(decodedTIFF))
+            elif "application/msword" in pl['Content-Type'] or "application/vnd.openxmlformats-officedocument.wordprocessingml.document" in pl['Content-Type']:
+                b64string = pl.get_payload()
+                decodedDOC = base64.b64decode(b64string)
+                tempFile = writeTempFile(decodedDOC)
+                out_filelist.append(convertToPDF(tempFile))
+    else:
+        tosend = em.get_payload()
+        out_filelist.append(writeTempFile(tosend))
+    arguments = ["/usr/bin/sendfax", "-n", "-d"]+[number]+out_filelist
+    subprocess.call(arguments)
+
+
+def send_mail(data):
+    tmpfile = writeTempFile(data)
+    subprocess.call(["/etc/alternatives/sendmail",
+                     "-i", "-t"], stdin=open(tmpfile))
+
+
+# Return whole stdin as a string
+def get_stdin():
+    res = ""
+    for line in fileinput.input():
+        res += line
+    return res
+
+
+# Extract number from subject line
+def get_number(fileString):
+    headerFields = HeaderParser().parsestr(fileString)
+    subject_line = headerFields['Subject']
+    num_array = re.findall('\d+', subject_line)
+    num = ''.join(num_array)
+    return num
+
+
+def main():
+    fileString = get_stdin()
+    # Fix for drupal bug
+    if "\nboundary" in fileString:
+        fileString = fileString.replace("\nboundary", "boundary")
+
+# Get header info
+    headerFields = HeaderParser().parsestr(fileString)
+
+# If the "To" field contain flag mail, send as fax
+    if headerFields['To'] == mail_flag:
+        send_fax(fileString)
+    else:
+        send_mail(fileString)
+
+if __name__ == "__main__":
+    main()
