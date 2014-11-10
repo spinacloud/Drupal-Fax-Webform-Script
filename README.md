@@ -9,10 +9,10 @@ This script assumes you have a working Hylafax server & a drupal 7 site with  We
 
 
 Requirements:
-1) Drupal 7 with Webforms 3.x and Webform Phone Number module
-2) Linux system with working sendmail (test to make sure sendmail works before using this script)
-3) python 2
-4) A webform created with drupal that passes the Phone Number field as a subject line (you can use webform tokens to do this)
+1) Drupal 7 with Webforms 3.x and Webform Phone Number module 
+2) Linux system with working sendmail (test to make sure sendmail works before using this script) 
+3) python 2 
+4) A webform created with drupal that passes the Phone Number field as a subject line (you can use webform tokens to do this) 
 5) Hylafax (script was tested on 6.0.6)
 
 Download both sendmailpy & sendmailsh to /etc/alternatives
