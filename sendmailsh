@@ -1,0 +1,4 @@
+#!/bin/bash
+thefile=`cat`
+echo "$thefile" > /tmp/currentmail
+echo "$thefile"|/usr/bin/python2.7 /etc/alternatives/sendmailpy >> /tmp/dbg.txt
